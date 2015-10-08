@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<application xmlns="http://ns.adobe.com/air/application/2.0">
+	<id>com.boonex.desktop</id>
+	<version>1.0</version>
+	<filename>Desktop</filename>
+	<initialWindow>
+		<content>index.html</content>
+		<visible>false</visible>
+		<width>206</width>
+		<height>232</height>
+		<systemChrome>standard</systemChrome>
+		<transparent>false</transparent>
+		<minimizable>false</minimizable>
+		<maximizable>false</maximizable>
+		<resizable>false</resizable>
+	</initialWindow>
+	<icon>
+		<image16x16>icon16.png</image16x16>
+		<image32x32>icon32.png</image32x32>
+		<image48x48>icon48.png</image48x48>
+		<image128x128>icon128.png</image128x128>
+	</icon>
+</application>

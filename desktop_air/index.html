@@ -1,0 +1,332 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<title>Desktop</title>
+</head>
+<body bgcolor="#ffffff" onLoad="centerApp()">
+
+<script src="AC_RunActiveContent.js" type="text/javascript"></script>
+<script src="AIRAliases.js" type="text/javascript"></script>
+<script src="url.js" type="text/javascript"></script>
+<script type="text/javascript">
+var sModule = "desktop";
+var sRayUrl = sXmlUrl.substring(0, sXmlUrl.lastIndexOf("/")+1);
+var sBase = sRayUrl + "modules/" + sModule + "/";
+var sDataUrl = sBase + "data/";
+var sIconDimension = "16";
+
+var bLoggedIn = false;
+var oMainWindow, oUsersWindow, oChatWindow;
+var oLanguage;
+var iconMenu = new air.NativeMenu();
+var menuSite, menuChat, menuMail, menuUsers, menuLogging, menuExit;
+var aExtraMenus = new Array();
+var sSiteLink = "", sChatLink = "", sMailLink = "";
+var sUserId = "", sUserPassword = "";
+
+function centerApp()
+{
+	var activeWindow = air.NativeApplication.nativeApplication.openedWindows[0];
+	var oScreen = air.Screen.mainScreen.bounds;
+	activeWindow.x = (oScreen.width - activeWindow.bounds.width) / 2;
+	activeWindow.y = (oScreen.height - activeWindow.bounds.height) / 2;
+	activeWindow.activate();
+}
+
+function setConfig(oConfig)
+{
+	if(oConfig.siteUrl != undefined) sSiteLink = oConfig.siteUrl;
+	if(oConfig.userChat != undefined) sChatLink = oConfig.userChat;
+	if(oConfig.siteMail != undefined) sMailLink = oConfig.siteMail;
+	
+	for(var i in oConfig)
+		if(i.indexOf("sitePage") == 0)
+		{
+			var index = i.split("sitePage").join("");
+			var sUrl = oConfig[i];
+			if(isNaN(index) || sUrl == "") continue;
+
+			var extraMenu = new air.NativeMenuItem("");
+			extraMenu.addEventListener(air.Event.SELECT, function(event){
+				for(var j=1; j<=aExtraMenus.length; j++)
+					if(aExtraMenus[j] != null && aExtraMenus[j].menu == event.target)
+					{
+						openUrl(sSiteLink + aExtraMenus[j].url);
+						break;
+					}
+			});
+			var sCaption = oConfig["sitePage" + index + "Caption"];
+			sCaption = sCaption == undefined || sCaption == "" ? sUrl : sCaption;
+			aExtraMenus[index] = {menu: extraMenu, url: sUrl, caption: sCaption};
+		}
+	
+	for(var i=1; i<=aExtraMenus.length; i++)
+		if(aExtraMenus[i] != null)
+			iconMenu.addItem(aExtraMenus[i].menu);
+	if(aExtraMenus.length > 0)
+		iconMenu.addItem(new air.NativeMenuItem("A", true));
+		
+	var sSiteName = oConfig.siteName != undefined && oConfig.siteName != "" ? oConfig.siteName : sSiteLink;
+	menuSite.label = sSiteName;
+	iconMenu.addItem(menuSite);
+	if(oConfig.useMail != undefined && oConfig.useMail == true)
+		iconMenu.addItem(menuMail);
+	if(oConfig.useChat != undefined && oConfig.useChat == true && oConfig.userChat != "")
+		iconMenu.addItem(menuChat);
+	iconMenu.addItem(menuUsers);
+
+	iconMenu.addItem(new air.NativeMenuItem("A", true));
+	iconMenu.addItem(menuLogging);
+	iconMenu.setItemIndex(menuExit, iconMenu.numItems - 1);	
+	
+	oMainWindow = air.NativeApplication.nativeApplication.activeWindow;
+	oMainWindow.addEventListener(air.Event.CLOSING, onCloseWindow);
+	setLanguage(oLanguage);
+	serialize("config", oConfig);
+}
+
+function serialize(sKey, object)
+{
+	var aItems = new Array();
+	for(var i in object)
+		aItems.push(i + "|||" + object[i]);
+	setCookie(sKey, aItems.join("/////"));
+}
+
+function onCloseWindow(event)
+{
+	event.preventDefault();
+	event.target.visible = false;
+	thisMovie("desktop").close();
+}
+
+function setLanguage(objLanguage)
+{
+	oLanguage = objLanguage;
+	menuMail.label = getLanguageString("menuMail", "Mail");
+	menuChat.label = getLanguageString("menuChat", "Chat");
+	menuUsers.label = getLanguageString("menuUsers", "Users List");
+	menuExit.label = getLanguageString("menuExit", "Exit");
+	if(oUsersWindow != null && !oUsersWindow.closed) oUsersWindow.title = getLanguageString("windowUsers", "Users");
+	if(oChatWindow != null && !oChatWindow.closed) oChatWindow.title = getLanguageString("windowChat", "Chat");
+	
+	refreshLoggingCaption();
+	for(var i=1; i<=aExtraMenus.length; i++)
+		if(aExtraMenus[i] != null)
+			aExtraMenus[i].menu.label = getLanguageString(aExtraMenus[i].caption);
+}
+
+function refreshLoggingCaption()
+{
+	menuLogging.label = bLoggedIn ? getLanguageString("menuLogout", "Log Out") : getLanguageString("menuLogin", "Log In");
+}
+
+function getLanguageString(sKey, sDefault)
+{
+	if(sDefault == undefined || sDefault == "") sDefault = sKey;
+	return oLanguage[sKey] == undefined ? sDefault : oLanguage[sKey];
+}
+
+function setLoggedUserData(strUserId, strPassword)
+{
+	sUserId = strUserId;
+	sUserPassword = strPassword;
+	onLogin(true);
+}
+
+function onLogin(bMode)
+{
+	bLoggedIn = bMode;
+	refreshLoggingCaption();
+	menuUsers.enabled = menuChat.enabled = menuMail.enabled = bLoggedIn;
+	oMainWindow.visible = false;
+	if(bLoggedIn) onUsersClick();
+	else
+	{
+		sUserId = sUserPassword = "";
+		thisMovie("desktop").logout();
+	}
+	air.NativeApplication.nativeApplication.icon.tooltip = bLoggedIn 
+		? getLanguageString("menuOnline", "Online") 
+		: getLanguageString("menuOffline", "Offline");
+		
+	refreshIconImage();
+}
+
+function onExitClick(event)
+{
+	air.NativeApplication.nativeApplication.icon.bitmaps = [];
+	air.NativeApplication.nativeApplication.exit();
+}
+
+function onSiteClick(event)
+{
+	openUrl(sSiteLink)
+}
+
+function onChatClick(event)
+{
+	if(oChatWindow == null || oChatWindow.closed)
+	{
+		var iWidth = 750;
+		var iHeight = 650;
+		var options = new air.NativeWindowInitOptions();
+		var oScreen = air.Screen.mainScreen.bounds;
+		var bounds = new air.Rectangle((oScreen.width - iWidth)/2, (oScreen.height - iHeight)/2, iWidth, iHeight);
+		var sTitle = getLanguageString("windowChat", "Chat");
+		oChatWindow = createWindow(options, bounds, sChatLink + "&url=" + sXmlUrl, sTitle, true);
+	}
+	oChatWindow.activate();
+}
+
+function onMailClick(event)
+{
+	openUrl(sMailLink.split("#owner#").join(sUserId).split("#password#").join(sUserPassword));
+}
+
+function onUsersClick(event)
+{
+	if(oUsersWindow == null || oUsersWindow.closed)
+	{
+		var options = new air.NativeWindowInitOptions();
+		options.minimizable = options.maximizable = false;
+		var bounds = new air.Rectangle(air.Screen.mainScreen.bounds.width - 300, 0, 310, 635);
+		var sTitle = getLanguageString("windowUsers", "Users List");
+		oUsersWindow = createWindow(options, bounds, "users.html?id=" + sUserId + "&password=" + sUserPassword, sTitle, false);
+		oUsersWindow.addEventListener(air.Event.CLOSING, onCloseWindow);
+	}
+	oUsersWindow.activate();
+}
+
+function onLoggingClick(event)
+{
+	if(bLoggedIn) //Log out
+	{
+		if(oUsersWindow != null)
+		{
+			oUsersWindow.removeEventListener(air.Event.CLOSING, onCloseWindow);
+			oUsersWindow.close();
+		}
+		onLogin(false);
+	}
+	else //Log in
+	{
+		oMainWindow.activate();
+	}
+}
+
+air.NativeApplication.nativeApplication.autoExit = false;
+var iconLoad = new air.Loader();
+
+menuSite = new air.NativeMenuItem("");
+menuSite.addEventListener(air.Event.SELECT, onSiteClick);
+
+menuChat = new air.NativeMenuItem("");
+menuChat.addEventListener(air.Event.SELECT, onChatClick);
+menuChat.enabled = false;
+
+menuMail = new air.NativeMenuItem("");
+menuMail.addEventListener(air.Event.SELECT, onMailClick);
+menuMail.enabled = false;
+
+menuUsers = new air.NativeMenuItem("");
+menuUsers.addEventListener(air.Event.SELECT, onUsersClick);
+menuUsers.enabled = false;
+
+menuLogging = new air.NativeMenuItem("");
+menuLogging.addEventListener(air.Event.SELECT, onLoggingClick);
+	
+menuExit = new air.NativeMenuItem("");
+menuExit.addEventListener(air.Event.SELECT, onExitClick);
+
+setLanguage(new Object());
+iconMenu.addItem(menuExit);
+
+
+if(air.NativeApplication.supportsSystemTrayIcon)
+{
+	air.NativeApplication.nativeApplication.autoExit = false;
+	iconLoad.contentLoaderInfo.addEventListener(air.Event.COMPLETE, onIconLoadComplete);
+	air.NativeApplication.nativeApplication.icon.menu = iconMenu;
+	refreshIconImage();
+}
+
+if(air.NativeApplication.supportsDockIcon)
+{ 
+	sIconDimension = "128";
+	iconLoad.contentLoaderInfo.addEventListener(air.Event.COMPLETE, onIconLoadComplete);
+	air.NativeApplication.nativeApplication.icon.menu = iconMenu;
+	refreshIconImage();
+} 
+
+function refreshIconImage()
+{
+	if(iconLoad.content != null) iconLoad.unload();
+	iconLoad.load(new air.URLRequest(sDataUrl + (bLoggedIn ? "online_" : "offline_") + sIconDimension + ".png"));
+}
+
+function onIconLoadComplete(event)
+{
+	air.NativeApplication.nativeApplication.icon.bitmaps = new runtime.Array(event.target.content.bitmapData);
+}
+
+function openUrl(sUrl)
+{
+	var urlReq = new air.URLRequest(sUrl);
+	air.navigateToURL(urlReq);
+}
+
+function createWindow(oOptions, oBounds, sLink, sTitle, bBrowser)
+{
+	var oWindow = air.HTMLLoader.createRootWindow(true, oOptions, true, oBounds);
+	if(bBrowser != undefined) oWindow.navigateInSystemBrowser = bBrowser;	
+	
+	sLink = sLink.split("#owner#").join(sUserId).split("#password#").join(sUserPassword);
+	oWindow.load(new air.URLRequest(sLink));
+	if(sTitle != "") oWindow.stage.nativeWindow.title = sTitle;
+	return oWindow.stage.nativeWindow;
+}
+
+function setCookie(sKey, sValue)
+{
+	var bytes = new air.ByteArray();
+	bytes.writeUTFBytes(sValue);
+	air.EncryptedLocalStore.setItem(sKey, bytes);
+}
+
+function getCookie(sKey)
+{
+	var storedValue = air.EncryptedLocalStore.getItem(sKey);
+	return storedValue == undefined ? "" : storedValue.readUTFBytes(storedValue.length);
+}
+
+function thisMovie(movieName) 
+{
+	if(navigator.appName.indexOf("Microsoft") != -1) {
+		return window[movieName];
+	}
+	else {
+		return document[movieName];
+	}
+}
+
+AC_FL_RunContent(
+	'codebase','http://fpdownload.macromedia.com/pub/shockwave/cabs/flash/swflash.cab',
+	'width','200',
+	'height','200',
+	'id','desktop',
+	'align','middle',
+	'src','desktop_main',
+	'quality','high',
+	'bgcolor','#FFFFFF',
+	'name','desktop',
+	'base',sBase,
+	'allowscriptaccess','all',
+	'pluginspage','http://www.macromedia.com/go/getflashplayer',
+	'flashvars','url=' + sXmlUrl,
+	'movie','desktop_main'
+);
+
+</script>
+</body>
+</html>

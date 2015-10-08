@@ -1,0 +1,147 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+</head>
+<body bgcolor="#ffffff">
+<script src="AC_RunActiveContent.js" type="text/javascript"></script>
+<script src="AIRAliases.js" type="text/javascript"></script>
+<script src="url.js" type="text/javascript"></script>
+<script type="text/javascript">
+var sModule = "desktop";
+var oLanguage, oConfig;
+var sUrl = String(document.location);
+var flashVars = sUrl.split("?")[1];
+var sUserId = flashVars.split("owner=").join("").split("&")[0];
+var sUserPassword = flashVars.split("&password=")[1].split("&")[0];
+var sCase = flashVars.split("&case=")[1].split("&")[0];
+var sCaseId = flashVars.split("&caseId=")[1].split("&")[0];
+var sRayUrl = sXmlUrl.substring(0, sXmlUrl.lastIndexOf("/")+1);
+var sModulesUrl = sRayUrl + "modules/";
+var sBase = sModulesUrl + sModule + "/";
+
+var sCaseCookie = sCase + "_" + sCaseId;
+var sUser = getCookie(sCaseCookie);
+
+air.EncryptedLocalStore.removeItem(sCaseCookie);
+var sText = "";
+if(sCase != "profile")
+{
+	sText = getCookie(sCaseCookie + "_text");
+	air.EncryptedLocalStore.removeItem(sCaseCookie + "_text");
+}
+
+oLanguage = deserialize("language");
+oConfig = deserialize("config");
+
+function getConfig()
+{
+	return oConfig;
+}
+
+function deserialize(sKey)
+{
+	var object = new Object();
+	var aItems = getCookie(sKey).split("/////");
+	for(var i=0; i<aItems.length; i++)
+	{
+		var aItem = aItems[i].split("|||", 2);
+		object[aItem[0]] = aItem[1];
+	}
+	return object;
+}
+
+function getLanguageString(sKey, sDefault)
+{
+	if(sDefault == undefined || sDefault == "") sDefault = sKey;
+	return oLanguage[sKey] == undefined ? sDefault : oLanguage[sKey];
+}
+
+function declineIm()
+{
+	var url = new air.URLRequest(sXmlUrl + "?module=" + sModule + "&action=declineIm&id=" + sCaseId);
+	var html = new air.URLLoader();
+	html.addEventListener(air.Event.COMPLETE, closeMe);
+	html.load(url);
+}
+
+function openUserWidget(sParams)
+{
+	var aParams = sParams.split("/");
+	var sModule = aParams[0];
+	var sLink = sBase + sModule + ".html?" + aParams[1] + "&url=" + sXmlUrl;
+	var sNick = aParams[2];
+	
+	var aBounds = aParams[3].split(",");
+	var bounds = new air.Rectangle(aBounds[0], aBounds[1], aBounds[2], aBounds[3]);
+	
+	var options = new air.NativeWindowInitOptions();
+	var bResizable = aParams[4] == "true";
+	options.maximizable = options.resizable = bResizable;
+	
+	var oWindow = air.HTMLLoader.createRootWindow(true, options, true, bounds);
+	oWindow.navigateInSystemBrowser = true;
+	sLink = sLink.split("#owner#").join(sUserId).split("#password#").join(sUserPassword);
+	oWindow.load(new air.URLRequest(sLink));
+	oWindow.stage.nativeWindow.title = getLanguageString(sModule).split("#user#").join(sNick);
+}
+
+function openUrl(sUrl)
+{
+	var urlReq = new air.URLRequest(sUrl);
+	air.navigateToURL(urlReq);
+}
+
+function notify(sCase, sId, oUser, sText)
+{
+	setCookie(sCase + "_" + sId, oUser);
+	if(sText != undefined && sText != "")
+		setCookie(sCase + "_" + sId + "_text", sText);
+	createWindow("notification.html?case=" + sCase + "&id=" + sId);
+}
+
+function setCookie(sKey, sValue)
+{
+	var bytes = new air.ByteArray();
+	bytes.writeUTFBytes(sValue);
+	air.EncryptedLocalStore.setItem(sKey, bytes);
+}
+
+function getCookie(sKey)
+{
+	var storedValue = air.EncryptedLocalStore.getItem(sKey);
+	return storedValue == undefined ? "" : storedValue.readUTFBytes(storedValue.length);
+}
+
+function closeMe(event)
+{
+	var aWindows = air.NativeApplication.nativeApplication.openedWindows;
+	for(var i=0; i<aWindows.length; i++)
+		if(aWindows[i].title == sCaseCookie)
+		{
+			aWindows[i].dispatchEvent(new air.Event(air.Event.CLOSING));
+			aWindows[i].close();
+			return;
+		}
+}
+
+flashVars += "&" + sUser + "&text=" + sText;
+AC_FL_RunContent(
+	'codebase','http://fpdownload.macromedia.com/pub/shockwave/cabs/flash/swflash.cab',
+	'width',200,
+	'height',200,
+	'id','flash',
+	'base',sBase,
+	'align','middle',
+	'src','notification',
+	'quality','high',
+	'bgcolor','#FFFFFF',
+	'name','flash',
+	'allowscriptaccess','all',
+	'pluginspage','http://www.macromedia.com/go/getflashplayer',
+	'flashvars',flashVars,
+	'movie','notification'
+);
+</script>
+
+</body>
+</html>
