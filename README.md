@@ -7,7 +7,7 @@ This package contains 2 directories:
 
 If you want to compile the AIR Desktop application with your custom changes, then you need do the following:
 
-1. Get the latest AIR SDK at http://www.adobe.com/cfusion/entitlement/index.cfm?e=airsdk
+1. Get the latest AIR SDK at http://www.adobe.com/devnet/air/air-sdk-download.html
 2. Unzip the SDK let's say to `C:\` on your PC
 3. Place `desktop_air` directory to the root of unzipped SDK (the whole directory, not just contents)
 4. Edit `url.js` file, setting your site url instead of `[your_site]` text there. Save the file
